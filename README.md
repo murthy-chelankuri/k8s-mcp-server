@@ -91,7 +91,7 @@ go install github.com/briankscheong/k8s-mcp-server/cmd/k8s-mcp-server@latest
 
 ## Command Line Options ⌨️
 
-```bash
+```txt
 Usage:
   k8smcp [command]
 
