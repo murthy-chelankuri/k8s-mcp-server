@@ -104,7 +104,7 @@ Available Commands:
 Flags:
   -h, --help                     help for k8smcp
       --in-cluster               Use in-cluster config instead of kubeconfig file
-      --kubeconfig string        Path to the kubeconfig file (default "/Users/briancheong/.kube/config")
+      --kubeconfig string        Path to the kubeconfig file (default "$(HOME)/.kube/config")
       --log-commands             Log all commands and responses
       --log-file string          Path to log file (defaults to stderr)
       --namespace string         Default Kubernetes namespace (default "default")
