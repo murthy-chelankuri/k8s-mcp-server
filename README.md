@@ -3,7 +3,7 @@
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev/)
 [![MCP](https://img.shields.io/badge/MCP-2025.03.26-purple?style=flat-square)](https://modelcontextprotocol.io/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Go Report Card](https://img.shields.io/badge/Go_Report-A+-success?style=flat-square&logo=go&logoColor=white)](https://github.com/briankscheong/k8smcp)
+[![Go Report Card](https://img.shields.io/badge/Go_Report-A+-success?style=flat-square&logo=go&logoColor=white)](https://github.com/briankscheong/k8s-mcp-server)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=flat-square&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 
 The Kubernetes MCP Server is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server that provides seamless integration with Kubernetes APIs, enabling advanced automation and interaction capabilities for developers, operators, and AI tools.
