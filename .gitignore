@@ -15,3 +15,4 @@ script
 *.out
 *.html
 .go*
+temp*
