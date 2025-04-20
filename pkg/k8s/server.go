@@ -9,8 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-// NewServer creates a new K8s MCP Server with the specified GH client and logger.
-
+// NewServer creates a new K8s MCP Server with the specified K8s clientset and logger.
 func NewServer(version string, opts ...server.ServerOption) *server.MCPServer {
 	// Add default options
 	defaultOpts := []server.ServerOption{
