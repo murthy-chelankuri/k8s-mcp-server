@@ -29,7 +29,7 @@ var date = "date"
 
 var (
 	rootCmd = &cobra.Command{
-		Use:     "k8s-mcp",
+		Use:     "k8smcp",
 		Short:   "Kubernetes MCP Server",
 		Long:    `A Kubernetes MCP Server that provides tools for interacting with Kubernetes clusters.`,
 		Version: fmt.Sprintf("Version: %s\nCommit: %s\nBuild Date: %s", version, commit, date),
