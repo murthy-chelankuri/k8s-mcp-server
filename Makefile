@@ -81,9 +81,6 @@ add_kubeconfig:
 #
 # - docker targets
 ###############################
-install_buildx:
-
-
 IMAGE_TAG?=$(shell date +%Y%m%d%H%M%S)
 build_container:
 	@dir_name="$$(basename "$$PWD")"; \
