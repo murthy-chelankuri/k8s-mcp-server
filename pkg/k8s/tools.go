@@ -8,7 +8,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-type GetClientFn func(context.Context) (*kubernetes.Clientset, error)
+type GetClientFn func(context.Context) (kubernetes.Interface, error)
 
 var DefaultTools = []string{"all"}
 

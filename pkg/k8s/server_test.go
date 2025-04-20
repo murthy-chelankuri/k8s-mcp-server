@@ -11,8 +11,9 @@ import (
 )
 
 func stubGetClientFn(client kubernetes.Interface) GetClientFn {
-	return func(ctx context.Context) (*kubernetes.Clientset, error) {
-		return client.(*kubernetes.Clientset), nil
+	return func(ctx context.Context) (kubernetes.Interface, error) {
+		return client, nil
+		// return client.(*kubernetes.Clientset), nil
 	}
 }
 

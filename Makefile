@@ -16,6 +16,11 @@ clean:
 	@go clean
 	@go clean -modcache
 
+test:
+	@echo "Running test..."
+	@go test -count=1 -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+
 #
 #
 # - brew targets

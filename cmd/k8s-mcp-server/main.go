@@ -209,7 +209,7 @@ func runStdioServer(cfg runConfig) error {
 	t, dumpTranslations := translations.TranslationHelper()
 
 	// Create client getter function
-	getClient := func(_ context.Context) (*kubernetes.Clientset, error) {
+	getClient := func(_ context.Context) (kubernetes.Interface, error) {
 		return k8sClient, nil
 	}
 

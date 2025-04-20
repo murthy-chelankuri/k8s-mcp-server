@@ -1,0 +1,17 @@
+.idea
+
+# VSCode
+.vscode/mcp.json
+
+# Added by goreleaser init:
+dist/
+__debug_bin*
+
+# Go 
+vendor
+
+# Custom
+script
+*.out
+*.html
+.go*
