@@ -101,7 +101,7 @@ func init() {
 	rootCmd.PersistentFlags().String("namespace", "default",
 		"Default Kubernetes namespace")
 	rootCmd.PersistentFlags().Bool("export-translations", false, "Save translations to a JSON file")
-	rootCmd.PersistentFlags().StringSlice("toolsets", []string{"all"}, "Comma-separated list of tools to enable (defaults to all)")
+	rootCmd.PersistentFlags().StringSlice("toolsets", []string{"all"}, "Comma separated list of tools to enable")
 
 	// Kubernetes connection options
 	defaultKubeconfig := ""
