@@ -46,16 +46,14 @@ var (
 			namespace := viper.GetString("namespace")
 			inCluster := viper.GetBool("in-cluster")
 			exportTranslations := viper.GetBool("export-translations")
+			enabledToolsets := viper.GetStringSlice("toolsets")
+			enabledResourceTypes := viper.GetStringSlice("resource-types")
+			logCommands := viper.GetBool("log-commands")
 
 			logger, err := initLogger(logFile)
 			if err != nil {
 				stdlog.Fatal("Failed to initialize logger:", err)
 			}
-
-			enabledToolsets := viper.GetStringSlice("toolsets")
-
-			enabledResourceTypes := viper.GetStringSlice("resource-types")
-			logCommands := viper.GetBool("log-commands")
 
 			cfg := runConfig{
 				readOnly:           readOnly,
@@ -102,6 +100,8 @@ func init() {
 		"Log all commands and responses")
 	rootCmd.PersistentFlags().String("namespace", "default",
 		"Default Kubernetes namespace")
+	rootCmd.PersistentFlags().Bool("export-translations", false, "Save translations to a JSON file")
+	rootCmd.PersistentFlags().StringSlice("toolsets", []string{"all"}, "Comma-separated list of tools to enable (defaults to all)")
 
 	// Kubernetes connection options
 	defaultKubeconfig := ""
@@ -122,6 +122,8 @@ func init() {
 	_ = viper.BindPFlag("namespace", rootCmd.PersistentFlags().Lookup("namespace"))
 	_ = viper.BindPFlag("kubeconfig", rootCmd.PersistentFlags().Lookup("kubeconfig"))
 	_ = viper.BindPFlag("in-cluster", rootCmd.PersistentFlags().Lookup("in-cluster"))
+	_ = viper.BindPFlag("export-translations", rootCmd.PersistentFlags().Lookup("export-translations"))
+	_ = viper.BindPFlag("toolsets", rootCmd.PersistentFlags().Lookup("toolsets"))
 
 	// Add subcommands
 	rootCmd.AddCommand(stdioCmd)
