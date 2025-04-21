@@ -9,6 +9,29 @@ The Kubernetes MCP Server is a [Model Context Protocol (MCP)](https://modelconte
 
 > **Note**: This project was inspired by and references the architecture of [GitHub's MCP Server](https://github.com/github/github-mcp-server). We acknowledge their excellent work which helped inform our implementation approach.
 
+## Table of Contents
+
+- [Kubernetes MCP Server 🚀](#kubernetes-mcp-server-)
+  - [Table of Contents](#table-of-contents)
+  - [Overview 📊](#overview-)
+  - [Prerequisites ✅](#prerequisites-)
+  - [Installation 💻](#installation-)
+    - [Usage with Claude Desktop](#usage-with-claude-desktop)
+    - [Usage with VS Code](#usage-with-vs-code)
+    - [Usage with Cline](#usage-with-cline)
+    - [Build from source](#build-from-source)
+  - [Command Line Options ⌨️](#command-line-options-️)
+  - [Server Transport Options 🔄](#server-transport-options-)
+    - [stdio (Stable)](#stdio-stable)
+    - [SSE (Not Available Yet)](#sse-not-available-yet)
+  - [Access Control 🔒](#access-control-)
+  - [Tools 🧰](#tools-)
+    - [Resource Operations 📦](#resource-operations-)
+    - [Management Operations ⚙️](#management-operations-️)
+  - [Future Enhancements 🔮](#future-enhancements-)
+  - [Contributing 👥](#contributing-)
+  - [License ⚖️](#license-️)
+
 ## Overview 📊
 
 This MCP server enables AI tools to interact with Kubernetes clusters using natural language, providing capabilities to:
@@ -34,8 +57,11 @@ Add the following to your Claude Desktop configuration file (`~/Library/Applicat
 {
   "mcpServers": {
     "kubernetes": {
-      "command": "k8smcp",
-      "args": ["stdio"],
+      "command": "path/to/k8smcp",
+      "args": [
+        "stdio",
+        "--kubeconfig=/path/to/your/kubeconfig"
+      ],
       "env": {
         "KUBECONFIG": "/path/to/your/kubeconfig"
       }
@@ -61,12 +87,39 @@ Add the following to your VS Code User Settings (JSON) file or `.vscode/mcp.json
     ],
     "servers": {
       "kubernetes": {
-        "command": "k8smcp",
-        "args": ["stdio"],
+        "command": "path/to/k8smcp",
+        "args": [
+          "stdio",
+          "--kubeconfig=/path/to/your/kubeconfig"
+        ],
         "env": {
           "KUBECONFIG": "${input:kubeconfig_path}"
         }
       }
+    }
+  }
+}
+```
+
+### Usage with Cline
+
+Add the following to your Cline configuration file (`path/to/cline_mcp_settings.json` after selecting "Configure MCP Servers"):
+
+```json
+{
+  "mcpServers": {
+    "kubernetes": {
+      "disabled": false,
+      "timeout": 60,
+      "command": "path/to/k8smcp",
+      "args": [
+        "stdio",
+        "--kubeconfig=/path/to/your/kubeconfig"
+      ],
+      "env": {
+        "KUBECONFIG": "/path/to/your/kubeconfig"
+      },
+      "transportType": "stdio"
     }
   }
 }
@@ -101,6 +154,7 @@ Available Commands:
   stdio       Start stdio server
 
 Flags:
+      --export-translations      Save translations to a JSON file
   -h, --help                     help for k8smcp
       --in-cluster               Use in-cluster config instead of kubeconfig file
       --kubeconfig string        Path to the kubeconfig file (default "$(HOME)/.kube/config")
@@ -109,6 +163,7 @@ Flags:
       --namespace string         Default Kubernetes namespace (default "default")
       --read-only                Restrict operations to read-only (no create, update, delete) (default true)
       --resource-types strings   Comma separated list of Kubernetes resource types to enable (pods,deployments,services,configmaps,namespaces,nodes)
+      --toolsets strings         Comma separated list of tools to enable (default [all])
   -v, --version                  version for k8smcp
 ```
 
