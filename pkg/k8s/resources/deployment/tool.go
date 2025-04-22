@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resourcetypes"
+	"github.com/briankscheong/k8s-mcp-server/pkg/toolsets"
 	"github.com/briankscheong/k8s-mcp-server/pkg/translations"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -14,12 +14,12 @@ import (
 
 // Handler implements the ResourceHandler interface for Deployment resources
 type Handler struct {
-	getClient resourcetypes.GetClientFn
+	getClient toolsets.GetClientFn
 	t         translations.TranslationHelperFunc
 }
 
 // NewHandler creates a new Deployment resource handler
-func NewHandler(getClient resourcetypes.GetClientFn, t translations.TranslationHelperFunc) *Handler {
+func NewHandler(getClient toolsets.GetClientFn, t translations.TranslationHelperFunc) *Handler {
 	return &Handler{
 		getClient: getClient,
 		t:         t,
@@ -27,7 +27,7 @@ func NewHandler(getClient resourcetypes.GetClientFn, t translations.TranslationH
 }
 
 // RegisterTools registers all Deployment resource tools with the provided toolset
-func (h *Handler) RegisterTools(toolset *resourcetypes.Toolset) {
+func (h *Handler) RegisterTools(toolset *toolsets.Toolset) {
 	// Register read tools
 	getTool, getHandler := h.Get()
 	toolset.AddReadTool(getTool, getHandler)
@@ -54,11 +54,11 @@ func (h *Handler) Get() (tool mcp.Tool, handler server.ToolHandlerFunc) {
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			namespace, err := resourcetypes.RequiredParam[string](request, "namespace")
+			namespace, err := toolsets.RequiredParam[string](request, "namespace")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			name, err := resourcetypes.RequiredParam[string](request, "name")
+			name, err := toolsets.RequiredParam[string](request, "name")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -98,17 +98,17 @@ func (h *Handler) List() (tool mcp.Tool, handler server.ToolHandlerFunc) {
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			namespace, err := resourcetypes.RequiredParam[string](request, "namespace")
+			namespace, err := toolsets.RequiredParam[string](request, "namespace")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			fieldSelector, err := resourcetypes.OptionalParam[string](request, "fieldSelector")
+			fieldSelector, err := toolsets.OptionalParam[string](request, "fieldSelector")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			labelSelector, err := resourcetypes.OptionalParam[string](request, "labelSelector")
+			labelSelector, err := toolsets.OptionalParam[string](request, "labelSelector")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -155,15 +155,15 @@ func (h *Handler) Scale() (tool mcp.Tool, handler server.ToolHandlerFunc) {
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			namespace, err := resourcetypes.RequiredParam[string](request, "namespace")
+			namespace, err := toolsets.RequiredParam[string](request, "namespace")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			name, err := resourcetypes.RequiredParam[string](request, "name")
+			name, err := toolsets.RequiredParam[string](request, "name")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			replicasFloat, err := resourcetypes.RequiredParam[float64](request, "replicas")
+			replicasFloat, err := toolsets.RequiredParam[float64](request, "replicas")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}

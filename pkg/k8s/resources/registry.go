@@ -7,13 +7,12 @@ import (
 	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resources/node"
 	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resources/pod"
 	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resources/service"
-	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resourcetypes"
 	"github.com/briankscheong/k8s-mcp-server/pkg/toolsets"
 	"github.com/briankscheong/k8s-mcp-server/pkg/translations"
 )
 
 // RegisterAllResources registers all resource handlers with the registry
-func RegisterAllResources(registry *resourcetypes.ResourceRegistry, getClient resourcetypes.GetClientFn, t translations.TranslationHelperFunc) {
+func RegisterAllResources(registry *toolsets.ResourceRegistry, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc) {
 	// Register Pod resource handler
 	registry.Register("pod", pod.NewHandler(getClient, t))
 
@@ -33,32 +32,47 @@ func RegisterAllResources(registry *resourcetypes.ResourceRegistry, getClient re
 	registry.Register("node", node.NewHandler(getClient, t))
 }
 
+// RegisterSelectedResources registers only the specified resource handlers with the registry
+func RegisterSelectedResources(registry *toolsets.ResourceRegistry, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc, resourceTypes []string) {
+	// Map of resource types to their registration functions
+	resourceMap := map[string]func(){
+		"pod": func() {
+			registry.Register("pod", pod.NewHandler(getClient, t))
+		},
+		"deployment": func() {
+			registry.Register("deployment", deployment.NewHandler(getClient, t))
+		},
+		"service": func() {
+			registry.Register("service", service.NewHandler(getClient, t))
+		},
+		"configmap": func() {
+			registry.Register("configmap", configmap.NewHandler(getClient, t))
+		},
+		"namespace": func() {
+			registry.Register("namespace", namespace.NewHandler(getClient, t))
+		},
+		"node": func() {
+			registry.Register("node", node.NewHandler(getClient, t))
+		},
+	}
+
+	// Register only the specified resources
+	for _, resourceType := range resourceTypes {
+		if registerFunc, ok := resourceMap[resourceType]; ok {
+			registerFunc()
+		}
+	}
+}
+
 // CreateToolset creates a toolset with all registered resource handlers
-func CreateToolset(registry *resourcetypes.ResourceRegistry, name string) *toolsets.Toolset {
+func CreateToolset(registry *toolsets.ResourceRegistry, name string) *toolsets.Toolset {
 	// Create a new toolset
-	toolset := resourcetypes.NewToolset(name)
+	toolset := toolsets.NewToolset(name, "K8s resources related tools")
 
 	// Register all resource handlers with the toolset
 	for _, handler := range registry.GetAllHandlers() {
 		handler.RegisterTools(toolset)
 	}
 
-	return ConvertToToolsetsToolset(toolset)
-}
-
-// ConvertToToolsetsToolset converts our Toolset to a toolsets.Toolset
-func ConvertToToolsetsToolset(toolset *resourcetypes.Toolset) *toolsets.Toolset {
-	ts := toolsets.NewToolset(toolset.Name, "K8s resources related tools")
-
-	// Add read tools
-	for _, tool := range toolset.ReadTools {
-		ts.AddReadTools(toolsets.NewServerTool(tool.Tool, tool.Handler))
-	}
-
-	// Add write tools
-	for _, tool := range toolset.WriteTools {
-		ts.AddWriteTools(toolsets.NewServerTool(tool.Tool, tool.Handler))
-	}
-
-	return ts
+	return toolset
 }

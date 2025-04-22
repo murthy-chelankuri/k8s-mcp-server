@@ -1,11 +1,11 @@
-package pod
+package service
 
 import (
 	"context"
 	"encoding/json"
 	"testing"
 
-	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resourcetypes"
+	"github.com/briankscheong/k8s-mcp-server/pkg/toolsets"
 	"github.com/briankscheong/k8s-mcp-server/pkg/translations"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +25,7 @@ func getTextResult(t *testing.T, result *mcp.CallToolResult) mcp.TextContent {
 }
 
 // Helper function to create a fake client
-func stubGetClientFn(client kubernetes.Interface) resourcetypes.GetClientFn {
+func stubGetClientFn(client kubernetes.Interface) toolsets.GetClientFn {
 	return func(ctx context.Context) (kubernetes.Interface, error) {
 		return client, nil
 	}
@@ -46,79 +46,77 @@ func createMCPRequest(args map[string]interface{}) mcp.CallToolRequest {
 	}
 }
 
-func TestGetPod(t *testing.T) {
-	// Create test pod
-	testPod := &corev1.Pod{
+func TestGetService(t *testing.T) {
+	// Create test service
+	testService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
+			Name:      "test-service",
 			Namespace: "default",
 			Labels: map[string]string{
 				"app": "test",
 			},
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "test",
+			},
+			Ports: []corev1.ServicePort{
 				{
-					Name:  "test-container",
-					Image: "nginx:latest",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 80,
-							Protocol:      corev1.ProtocolTCP,
-						},
-					},
+					Port:     80,
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
+			Type: corev1.ServiceTypeClusterIP,
 		},
-		Status: corev1.PodStatus{
-			Phase: corev1.PodRunning,
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{},
 		},
 	}
 
 	// Verify tool definition
-	fakeClient := fake.NewSimpleClientset(testPod)
+	fakeClient := fake.NewSimpleClientset(testService)
 	handler := NewHandler(stubGetClientFn(fakeClient), translations.NullTranslationHelper)
 	tool, _ := handler.Get()
 
-	assert.Equal(t, "get_pod", tool.Name)
+	assert.Equal(t, "get_service", tool.Name)
 	assert.NotEmpty(t, tool.Description)
 	assert.Contains(t, tool.InputSchema.Properties, "namespace")
 	assert.Contains(t, tool.InputSchema.Properties, "name")
 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"namespace", "name"})
 
 	tests := []struct {
-		name           string
-		client         kubernetes.Interface
-		requestArgs    map[string]interface{}
-		expectError    bool
-		expectedPod    *corev1.Pod
-		expectedErrMsg string
+		name            string
+		client          kubernetes.Interface
+		requestArgs     map[string]interface{}
+		expectError     bool
+		expectedService *corev1.Service
+		expectedErrMsg  string
 	}{
 		{
-			name:   "successful pod fetch",
-			client: fake.NewSimpleClientset(testPod),
+			name:   "successful service fetch",
+			client: fake.NewSimpleClientset(testService),
 			requestArgs: map[string]interface{}{
 				"namespace": "default",
-				"name":      "test-pod",
+				"name":      "test-service",
 			},
-			expectError: false,
-			expectedPod: testPod,
+			expectError:     false,
+			expectedService: testService,
 		},
 		{
-			name:   "pod not found",
+			name:   "service not found",
 			client: fake.NewSimpleClientset(),
 			requestArgs: map[string]interface{}{
 				"namespace": "default",
-				"name":      "non-existent-pod",
+				"name":      "non-existent-service",
 			},
 			expectError:    false, // Error is returned in tool result
-			expectedErrMsg: "failed to get pod",
+			expectedErrMsg: "failed to get service",
 		},
 		{
 			name:   "missing required param: namespace",
 			client: fake.NewSimpleClientset(),
 			requestArgs: map[string]interface{}{
-				"name": "test-pod",
+				"name": "test-service",
 			},
 			expectError:    false, // Error is returned in tool result
 			expectedErrMsg: "missing required parameter: namespace",
@@ -162,56 +160,73 @@ func TestGetPod(t *testing.T) {
 			assert.False(t, result.IsError)
 			textContent := getTextResult(t, result)
 
-			// Unmarshal and verify the returned pod
-			var returnedPod corev1.Pod
-			err = json.Unmarshal([]byte(textContent.Text), &returnedPod)
+			// Unmarshal and verify the returned service
+			var returnedService corev1.Service
+			err = json.Unmarshal([]byte(textContent.Text), &returnedService)
 			require.NoError(t, err)
-			assert.Equal(t, tc.expectedPod.Name, returnedPod.Name)
-			assert.Equal(t, tc.expectedPod.Namespace, returnedPod.Namespace)
-			assert.Equal(t, tc.expectedPod.Spec.Containers[0].Name, returnedPod.Spec.Containers[0].Name)
-			assert.Equal(t, tc.expectedPod.Spec.Containers[0].Image, returnedPod.Spec.Containers[0].Image)
-			assert.Equal(t, tc.expectedPod.Status.Phase, returnedPod.Status.Phase)
+			assert.Equal(t, tc.expectedService.Name, returnedService.Name)
+			assert.Equal(t, tc.expectedService.Namespace, returnedService.Namespace)
+			assert.Equal(t, tc.expectedService.Spec.Type, returnedService.Spec.Type)
+			assert.Equal(t, tc.expectedService.Spec.Ports[0].Port, returnedService.Spec.Ports[0].Port)
 		})
 	}
 }
 
-func TestListPods(t *testing.T) {
-	// Create test pods
-	testPods := &corev1.PodList{
-		Items: []corev1.Pod{
+func TestListServices(t *testing.T) {
+	// Create test services
+	testServices := &corev1.ServiceList{
+		Items: []corev1.Service{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod-1",
+					Name:      "test-service-1",
 					Namespace: "default",
 					Labels: map[string]string{
 						"app": "test",
 					},
 				},
-				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{
+						"app": "test",
+					},
+					Ports: []corev1.ServicePort{
+						{
+							Port:     80,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+					Type: corev1.ServiceTypeClusterIP,
 				},
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod-2",
+					Name:      "test-service-2",
 					Namespace: "default",
 					Labels: map[string]string{
 						"app": "test",
 					},
 				},
-				Status: corev1.PodStatus{
-					Phase: corev1.PodPending,
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{
+						"app": "test",
+					},
+					Ports: []corev1.ServicePort{
+						{
+							Port:     8080,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+					Type: corev1.ServiceTypeNodePort,
 				},
 			},
 		},
 	}
 
 	// Verify tool definition
-	fakeClient := fake.NewSimpleClientset(&testPods.Items[0], &testPods.Items[1])
+	fakeClient := fake.NewSimpleClientset(&testServices.Items[0], &testServices.Items[1])
 	handler := NewHandler(stubGetClientFn(fakeClient), translations.NullTranslationHelper)
 	tool, _ := handler.List()
 
-	assert.Equal(t, "list_pods", tool.Name)
+	assert.Equal(t, "list_services", tool.Name)
 	assert.NotEmpty(t, tool.Description)
 	assert.Contains(t, tool.InputSchema.Properties, "namespace")
 	assert.Contains(t, tool.InputSchema.Properties, "fieldSelector")
@@ -219,21 +234,21 @@ func TestListPods(t *testing.T) {
 	assert.ElementsMatch(t, tool.InputSchema.Required, []string{"namespace"})
 
 	tests := []struct {
-		name            string
-		client          kubernetes.Interface
-		requestArgs     map[string]interface{}
-		expectError     bool
-		expectedPodList *corev1.PodList
-		expectedErrMsg  string
+		name                string
+		client              kubernetes.Interface
+		requestArgs         map[string]interface{}
+		expectError         bool
+		expectedServiceList *corev1.ServiceList
+		expectedErrMsg      string
 	}{
 		{
-			name:   "successful pods list",
-			client: fake.NewSimpleClientset(&testPods.Items[0], &testPods.Items[1]),
+			name:   "successful services list",
+			client: fake.NewSimpleClientset(&testServices.Items[0], &testServices.Items[1]),
 			requestArgs: map[string]interface{}{
 				"namespace": "default",
 			},
-			expectError:     false,
-			expectedPodList: testPods,
+			expectError:         false,
+			expectedServiceList: testServices,
 		},
 		{
 			name:   "empty namespace",
@@ -241,18 +256,18 @@ func TestListPods(t *testing.T) {
 			requestArgs: map[string]interface{}{
 				"namespace": "empty-namespace",
 			},
-			expectError:     false,
-			expectedPodList: &corev1.PodList{},
+			expectError:         false,
+			expectedServiceList: &corev1.ServiceList{},
 		},
 		{
 			name:   "with label selector",
-			client: fake.NewSimpleClientset(&testPods.Items[0], &testPods.Items[1]),
+			client: fake.NewSimpleClientset(&testServices.Items[0], &testServices.Items[1]),
 			requestArgs: map[string]interface{}{
 				"namespace":     "default",
 				"labelSelector": "app=test",
 			},
-			expectError:     false,
-			expectedPodList: testPods,
+			expectError:         false,
+			expectedServiceList: testServices,
 		},
 		{
 			name:   "missing required param: namespace",
@@ -293,36 +308,33 @@ func TestListPods(t *testing.T) {
 			assert.False(t, result.IsError)
 			textContent := getTextResult(t, result)
 
-			// Unmarshal and verify the returned pod list
-			var returnedPodList corev1.PodList
-			err = json.Unmarshal([]byte(textContent.Text), &returnedPodList)
+			// Unmarshal and verify the returned service list
+			var returnedServiceList corev1.ServiceList
+			err = json.Unmarshal([]byte(textContent.Text), &returnedServiceList)
 			require.NoError(t, err)
 
 			// For empty lists, just check the length
-			if len(tc.expectedPodList.Items) == 0 {
-				assert.Len(t, returnedPodList.Items, 0)
+			if len(tc.expectedServiceList.Items) == 0 {
+				assert.Len(t, returnedServiceList.Items, 0)
 				return
 			}
 
-			// Otherwise check that the pods match
-			assert.Len(t, returnedPodList.Items, len(tc.expectedPodList.Items))
+			// Otherwise check that the services match
+			assert.Len(t, returnedServiceList.Items, len(tc.expectedServiceList.Items))
 
 			// Create maps to make comparison easier since order isn't guaranteed
-			expectedPodMap := make(map[string]corev1.Pod)
-			for _, pod := range tc.expectedPodList.Items {
-				expectedPodMap[pod.Name] = pod
+			expectedServiceMap := make(map[string]corev1.Service)
+			for _, svc := range tc.expectedServiceList.Items {
+				expectedServiceMap[svc.Name] = svc
 			}
 
-			for _, pod := range returnedPodList.Items {
-				expectedPod, exists := expectedPodMap[pod.Name]
-				assert.True(t, exists, "Returned unexpected pod: %s", pod.Name)
-				assert.Equal(t, expectedPod.Namespace, pod.Namespace)
-				assert.Equal(t, expectedPod.Status.Phase, pod.Status.Phase)
+			for _, svc := range returnedServiceList.Items {
+				expectedSvc, exists := expectedServiceMap[svc.Name]
+				assert.True(t, exists, "Returned unexpected service: %s", svc.Name)
+				assert.Equal(t, expectedSvc.Namespace, svc.Namespace)
+				assert.Equal(t, expectedSvc.Spec.Type, svc.Spec.Type)
+				assert.Equal(t, expectedSvc.Spec.Ports[0].Port, svc.Spec.Ports[0].Port)
 			}
 		})
 	}
-}
-
-func int32Ptr(val int32) *int32 {
-	return &val
 }

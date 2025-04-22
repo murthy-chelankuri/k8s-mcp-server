@@ -2,25 +2,27 @@ package k8s
 
 import (
 	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resources"
-	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resourcetypes"
 	"github.com/briankscheong/k8s-mcp-server/pkg/toolsets"
 	"github.com/briankscheong/k8s-mcp-server/pkg/translations"
 )
 
-// GetClientFn is a function type that returns a Kubernetes client interface
-// type GetClientFn = resourcetypes.GetClientFn
-
 var DefaultTools = []string{"all"}
 
-func InitToolsets(passedToolsets []string, readOnly bool, getClient resourcetypes.GetClientFn, t translations.TranslationHelperFunc) (*toolsets.ToolsetGroup, error) {
+func InitToolsets(passedToolsets []string, readOnly bool, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc, enabledResourceTypes []string) (*toolsets.ToolsetGroup, error) {
 	// Create a new toolset group
 	tsg := toolsets.NewToolsetGroup(readOnly)
 
 	// Create a resource registry
-	registry := resourcetypes.NewResourceRegistry()
+	registry := toolsets.NewResourceRegistry()
 
-	// Register all resources with the registry
-	resources.RegisterAllResources(registry, getClient, t)
+	// Register resources based on enabledResourceTypes
+	if len(enabledResourceTypes) == 0 || contains(enabledResourceTypes, "all") {
+		// Register all resources with the registry
+		resources.RegisterAllResources(registry, getClient, t)
+	} else {
+		// Register only the specified resources
+		resources.RegisterSelectedResources(registry, getClient, t, enabledResourceTypes)
+	}
 
 	// Create a toolset from the registry
 	resourcesToolset := resources.CreateToolset(registry, "k8s_resources")
@@ -34,4 +36,14 @@ func InitToolsets(passedToolsets []string, readOnly bool, getClient resourcetype
 	}
 
 	return tsg, nil
+}
+
+// Helper function to check if a slice contains a string
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }

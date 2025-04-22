@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/briankscheong/k8s-mcp-server/pkg/k8s/resourcetypes"
+	"github.com/briankscheong/k8s-mcp-server/pkg/toolsets"
 	"github.com/briankscheong/k8s-mcp-server/pkg/translations"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/kubernetes"
@@ -19,7 +19,7 @@ func TestRegisterAllResources(t *testing.T) {
 	}
 
 	// Create a registry
-	registry := resourcetypes.NewResourceRegistry()
+	registry := toolsets.NewResourceRegistry()
 
 	// Register all resources
 	RegisterAllResources(registry, getClient, translations.NullTranslationHelper)
@@ -43,7 +43,7 @@ func TestCreateToolset(t *testing.T) {
 	}
 
 	// Create a registry
-	registry := resourcetypes.NewResourceRegistry()
+	registry := toolsets.NewResourceRegistry()
 
 	// Register all resources
 	RegisterAllResources(registry, getClient, translations.NullTranslationHelper)

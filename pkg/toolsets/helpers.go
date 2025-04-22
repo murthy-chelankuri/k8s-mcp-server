@@ -1,4 +1,4 @@
-package resourcetypes
+package toolsets
 
 import (
 	"fmt"
