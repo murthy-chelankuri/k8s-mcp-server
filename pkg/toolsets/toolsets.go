@@ -77,22 +77,7 @@ func (t *Toolset) SetReadOnly() {
 	t.readOnly = true
 }
 
-// AddWriteTools adds write tools to the toolset
-func (t *Toolset) AddWriteTools(tools ...server.ServerTool) *Toolset {
-	// Silently ignore if the toolset is read-only to avoid any breach of that contract
-	if !t.readOnly {
-		t.writeTools = append(t.writeTools, tools...)
-	}
-	return t
-}
-
-// AddReadTools adds read tools to the toolset
-func (t *Toolset) AddReadTools(tools ...server.ServerTool) *Toolset {
-	t.readTools = append(t.readTools, tools...)
-	return t
-}
-
-// AddReadTool adds a read tool to the toolset
+// AddReadTool adds a mcp tool and handler func to the toolset
 func (t *Toolset) AddReadTool(tool mcp.Tool, handler server.ToolHandlerFunc) {
 	t.readTools = append(t.readTools, NewServerTool(tool, handler))
 }
