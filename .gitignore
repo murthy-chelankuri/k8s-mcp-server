@@ -11,8 +11,10 @@ __debug_bin*
 vendor
 
 # Custom
+k8s
+k8smcp
 script
-*.out
-*.html
 .go*
 temp*
+*.out
+*.html
