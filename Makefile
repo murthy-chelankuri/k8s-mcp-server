@@ -18,7 +18,7 @@ clean:
 
 test:
 	@echo "Running test..."
-	@go test -count=1 -coverprofile=coverage.out ./...
+	@go test -count=1 -cover -coverprofile=coverage.out ./...
 	@go tool cover -html=coverage.out -o coverage.html
 
 #

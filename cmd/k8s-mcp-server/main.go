@@ -221,7 +221,7 @@ func runStdioServer(cfg runConfig) error {
 	enabled := cfg.enabledToolsets
 
 	// Create default toolsets
-	k8s, err := k8s.InitToolsets(enabled, cfg.readOnly, getClient, t)
+	k8s, err := k8s.InitToolsets(enabled, cfg.readOnly, getClient, t, cfg.enabledResources)
 	if err != nil {
 		stdlog.Fatal("Failed to initialize toolsets:", err)
 	}
