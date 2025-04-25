@@ -198,7 +198,7 @@ func init() {
 		"Comma separated list of tools to enable")
 	rootCmd.PersistentFlags().String("kubeconfig", defaultKubeconfig,
 		"Path to the kubeconfig file")
-	rootCmd.PersistentFlags().Bool("in-cluster", true,
+	rootCmd.PersistentFlags().Bool("in-cluster", false,
 		"Use in-cluster config instead of kubeconfig file")
 
 	// Add stdio-specific flags

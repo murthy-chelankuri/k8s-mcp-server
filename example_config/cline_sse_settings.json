@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "remote-server": {
+      "url": "http://localhost:8080/mcp/sse",
+      "disabled": false,
+      "autoApprove": [
+        "list_configmaps",
+        "list_deployments",
+        "list_namespaces",
+        "list_pods",
+        "list_services"
+      ]
+    }
+  }
+}
