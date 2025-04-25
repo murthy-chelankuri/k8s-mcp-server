@@ -24,4 +24,4 @@ WORKDIR /server
 # Copy the binary from the build stage
 COPY --from=build /build/k8smcp .
 # Command to run the server
-CMD ["./k8smcp", "stdio"]
+CMD ["./k8smcp", "sse"]

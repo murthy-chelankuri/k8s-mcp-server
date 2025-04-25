@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "kubernetes": {
+      "disabled": false,
+      "timeout": 60,
+      "command": "/path/to/k8smcp",
+      "args": [
+        "stdio",
+        "--read-only=false"
+      ],
+      "env": {
+        "K8S_MCP_TOOLSETS": "all"
+      },
+      "transportType": "stdio",
+      "autoApprove": [
+        "list_configmaps",
+        "list_deployments",
+        "list_namespaces",
+        "list_pods",
+        "list_services"
+      ]
+    }
+  }
+}
