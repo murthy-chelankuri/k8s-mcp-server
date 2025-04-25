@@ -151,7 +151,7 @@ var stdioCmd = &cobra.Command{
 
 var sseCmd = &cobra.Command{
 	Use:   "sse",
-	Short: "Start HTTP SSE server",
+	Short: "Start SSE server",
 	Long:  `Start a server that communicates via HTTP with Server-Sent Events (SSE).`,
 	RunE: func(_ *cobra.Command, _ []string) error {
 		// Load the configuration
