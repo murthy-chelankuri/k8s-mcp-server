@@ -152,7 +152,7 @@ Usage:
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
-  sse         Start SSE server
+  sse         Start sse server
   stdio       Start stdio server
 
 Flags:
