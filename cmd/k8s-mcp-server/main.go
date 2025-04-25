@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 
 	stdlog "log"
@@ -16,7 +18,6 @@ import (
 	iolog "github.com/briankscheong/k8s-mcp-server/pkg/log"
 	"github.com/briankscheong/k8s-mcp-server/pkg/translations"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	logrus "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -27,100 +28,152 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
+// Version information, populated during build
 var (
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
 )
 
-// Config holds the common configuration for both transports
-type Config struct {
-	KubeConfig         string
-	Namespace          string
-	InCluster          bool
-	ReadOnly           bool
-	EnabledResources   []string
-	EnabledToolsets    []string
-	ExportTranslations bool
-}
+// Environment variable names - grouped by purpose
+const (
+	// Env prefix
+	EnvPrefix = "K8S_MCP"
 
-// StdioConfig holds STDIO specific configuration
-type StdioConfig struct {
-	Config
-	LogFile     string
-	LogCommands bool
-}
+	// Kubernetes connection
+	EnvKubeConfig = "KUBECONFIG"
+	EnvNamespace  = "NAMESPACE"
+	EnvInCluster  = "IN_CLUSTER"
 
-// SSEConfig holds SSE specific configuration
-type SSEConfig struct {
-	Config
-	Address string
-}
+	// Feature flags
+	EnvReadOnly           = "READ_ONLY"
+	EnvResourceTypes      = "RESOURCE_TYPES"
+	EnvToolsets           = "TOOLSETS"
+	EnvExportTranslations = "EXPORT_TRANSLATIONS"
 
-var (
-	rootCmd = &cobra.Command{
-		Use:     "k8smcp",
-		Short:   "Kubernetes MCP Server",
-		Long:    `A Kubernetes MCP Server that provides tools for interacting with Kubernetes clusters.`,
-		Version: fmt.Sprintf("Version: %s\nCommit: %s\nBuild Date: %s", version, commit, date),
-	}
+	// stdio specific
+	EnvLogFile     = "LOG_FILE"
+	EnvLogCommands = "LOG_COMMANDS"
 
-	stdioCmd = &cobra.Command{
-		Use:   "stdio",
-		Short: "Start stdio server",
-		Long:  `Start a server that communicates via standard input/output streams using JSON-RPC messages.`,
-		Run: func(_ *cobra.Command, _ []string) {
-			cfg := StdioConfig{
-				Config: Config{
-					KubeConfig:         viper.GetString("kubeconfig"),
-					Namespace:          viper.GetString("namespace"),
-					InCluster:          viper.GetBool("in-cluster"),
-					ReadOnly:           viper.GetBool("read-only"),
-					EnabledResources:   viper.GetStringSlice("resource-types"),
-					EnabledToolsets:    viper.GetStringSlice("toolsets"),
-					ExportTranslations: viper.GetBool("export-translations"),
-				},
-				LogFile:     viper.GetString("log-file"),
-				LogCommands: viper.GetBool("log-commands"),
-			}
-
-			if err := runStdioServer(cfg); err != nil {
-				log.Fatal().Err(err).Msg("Failed to run stdio server")
-			}
-		},
-	}
-
-	sseCmd = &cobra.Command{
-		Use:   "sse",
-		Short: "Start HTTP SSE server",
-		Long:  `Start a server that communicates via HTTP with Server-Sent Events (SSE).`,
-		Run: func(_ *cobra.Command, _ []string) {
-			cfg := SSEConfig{
-				Config: Config{
-					KubeConfig:         viper.GetString("kubeconfig"),
-					Namespace:          viper.GetString("namespace"),
-					InCluster:          viper.GetBool("in-cluster"),
-					ReadOnly:           viper.GetBool("read-only"),
-					EnabledResources:   viper.GetStringSlice("resource-types"),
-					EnabledToolsets:    viper.GetStringSlice("toolsets"),
-					ExportTranslations: viper.GetBool("export-translations"),
-				},
-				Address: viper.GetString("address"),
-			}
-
-			// Configure zerolog for SSE
-			zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-			log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-
-			if err := runSSEServer(cfg); err != nil {
-				log.Fatal().Err(err).Msg("Failed to run SSE server")
-			}
-		},
-	}
+	// SSE specific
+	EnvPort = "PORT"
 )
 
+// Config holds the common configuration for the server
+type Config struct {
+	// Kubernetes connection settings
+	KubeConfig string `mapstructure:"kubeconfig"`
+	Namespace  string `mapstructure:"namespace"`
+	InCluster  bool   `mapstructure:"in-cluster"`
+
+	// Feature flags
+	ReadOnly           bool     `mapstructure:"read-only"`
+	EnabledResources   []string `mapstructure:"resource-types"`
+	EnabledToolsets    []string `mapstructure:"toolsets"`
+	ExportTranslations bool     `mapstructure:"export-translations"`
+
+	// Transport-specific config
+	LogFile     string `mapstructure:"log-file"`
+	LogCommands bool   `mapstructure:"log-commands"`
+	Port        string `mapstructure:"port"`
+}
+
+// Validate checks that the configuration is valid
+func (c *Config) Validate() error {
+	// Validate required fields
+	if c.Namespace == "" {
+		return fmt.Errorf("namespace is required")
+	}
+
+	// Validate that at least one resource type is enabled
+	if len(c.EnabledResources) == 0 {
+		return fmt.Errorf("at least one resource type must be enabled")
+	}
+
+	// Validate that at least one toolset is enabled
+	if len(c.EnabledToolsets) == 0 {
+		return fmt.Errorf("at least one toolset must be enabled")
+	}
+
+	// For SSE, validate the port
+	if c.Port != "" {
+		// Check if the port is a valid number
+		if _, err := strconv.Atoi(c.Port); err != nil {
+			return fmt.Errorf("invalid port number: %s", c.Port)
+		}
+	}
+
+	return nil
+}
+
+// K8sConfig returns a reduced config with just the Kubernetes settings
+func (c *Config) K8sConfig() Config {
+	return Config{
+		KubeConfig:         c.KubeConfig,
+		Namespace:          c.Namespace,
+		InCluster:          c.InCluster,
+		ReadOnly:           c.ReadOnly,
+		EnabledResources:   c.EnabledResources,
+		EnabledToolsets:    c.EnabledToolsets,
+		ExportTranslations: c.ExportTranslations,
+	}
+}
+
+var rootCmd = &cobra.Command{
+	Use:     "k8smcp",
+	Short:   "Kubernetes MCP Server",
+	Long:    `A Kubernetes MCP Server that provides tools for interacting with Kubernetes clusters.`,
+	Version: fmt.Sprintf("Version: %s\nCommit: %s\nBuild Date: %s", version, commit, date),
+}
+
+var stdioCmd = &cobra.Command{
+	Use:   "stdio",
+	Short: "Start stdio server",
+	Long:  `Start a server that communicates via standard input/output streams using JSON-RPC messages.`,
+	RunE: func(_ *cobra.Command, _ []string) error {
+		// Load the configuration
+		var cfg Config
+		if err := viper.Unmarshal(&cfg); err != nil {
+			return fmt.Errorf("failed to parse server configuration: %w", err)
+		}
+
+		// Override with environment variables
+		loadEnvOverrides(&cfg)
+
+		// Validate the configuration
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid server configuration: %w", err)
+		}
+
+		return runStdioServer(cfg)
+	},
+}
+
+var sseCmd = &cobra.Command{
+	Use:   "sse",
+	Short: "Start HTTP SSE server",
+	Long:  `Start a server that communicates via HTTP with Server-Sent Events (SSE).`,
+	RunE: func(_ *cobra.Command, _ []string) error {
+		// Load the configuration
+		var cfg Config
+		if err := viper.Unmarshal(&cfg); err != nil {
+			return fmt.Errorf("failed to parse configuration: %w", err)
+		}
+
+		// Override with environment variables
+		loadEnvOverrides(&cfg)
+
+		// Validate the configuration
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid configuration: %w", err)
+		}
+
+		return runSSEServer(cfg)
+	},
+}
+
 func init() {
-	// Kubernetes connection options
+	// Find default kubeconfig location
 	defaultKubeconfig := ""
 	if home := homedir.HomeDir(); home != "" {
 		defaultKubeconfig = filepath.Join(home, ".kube", "config")
@@ -129,60 +182,176 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.SetVersionTemplate("{{.Short}}\n{{.Version}}\n")
+	rootCmd.SilenceUsage = false
+	rootCmd.SilenceErrors = false
 
 	// Add global flags for all commands
-	rootCmd.PersistentFlags().StringSlice("resource-types", []string{},
+	rootCmd.PersistentFlags().StringSlice("resource-types", []string{"all"},
 		"Comma separated list of Kubernetes resource types to enable (pods,deployments,services,configmaps,namespaces,nodes)")
 	rootCmd.PersistentFlags().Bool("read-only", true,
 		"Restrict operations to read-only (no create, update, delete)")
 	rootCmd.PersistentFlags().String("namespace", "default",
-		"Default Kubernetes namespace")
+		"Default Kubernetes namespace to target")
 	rootCmd.PersistentFlags().Bool("export-translations", false,
 		"Save translations to a JSON file")
 	rootCmd.PersistentFlags().StringSlice("toolsets", []string{"all"},
 		"Comma separated list of tools to enable")
 	rootCmd.PersistentFlags().String("kubeconfig", defaultKubeconfig,
 		"Path to the kubeconfig file")
-	rootCmd.PersistentFlags().Bool("in-cluster", false,
+	rootCmd.PersistentFlags().Bool("in-cluster", true,
 		"Use in-cluster config instead of kubeconfig file")
 
-	// Add STDIO-specific flags
+	// Add stdio-specific flags
 	stdioCmd.PersistentFlags().String("log-file", "",
 		"Path to log file (defaults to stderr)")
 	stdioCmd.PersistentFlags().Bool("log-commands", false,
 		"Log all commands and responses")
 
 	// Add SSE-specific flags
-	sseCmd.PersistentFlags().String("address", getEnv("SSE_SERVER_ADDRESS", "8080"),
-		"Address for SSE connections to be served")
+	sseCmd.PersistentFlags().String("port", "8080",
+		"Port for SSE connections to be served")
 
-	// Bind global flags to viper
-	_ = viper.BindPFlag("resource-types", rootCmd.PersistentFlags().Lookup("resource-types"))
-	_ = viper.BindPFlag("read-only", rootCmd.PersistentFlags().Lookup("read-only"))
-	_ = viper.BindPFlag("namespace", rootCmd.PersistentFlags().Lookup("namespace"))
-	_ = viper.BindPFlag("kubeconfig", rootCmd.PersistentFlags().Lookup("kubeconfig"))
-	_ = viper.BindPFlag("in-cluster", rootCmd.PersistentFlags().Lookup("in-cluster"))
-	_ = viper.BindPFlag("export-translations", rootCmd.PersistentFlags().Lookup("export-translations"))
-	_ = viper.BindPFlag("toolsets", rootCmd.PersistentFlags().Lookup("toolsets"))
-
-	// Bind STDIO-specific flags to viper
-	_ = viper.BindPFlag("log-file", stdioCmd.PersistentFlags().Lookup("log-file"))
-	_ = viper.BindPFlag("log-commands", stdioCmd.PersistentFlags().Lookup("log-commands"))
-
-	// Bind SSE-specific flags to viper
-	_ = viper.BindPFlag("address", sseCmd.PersistentFlags().Lookup("address"))
+	// Bind all flags to viper
+	if err := viper.BindPFlags(rootCmd.PersistentFlags()); err != nil {
+		log.Fatal().Err(err).Msg("failed to bind root flags")
+	}
+	if err := viper.BindPFlags(stdioCmd.PersistentFlags()); err != nil {
+		log.Fatal().Err(err).Msg("failed to bind stdio flags")
+	}
+	if err := viper.BindPFlags(sseCmd.PersistentFlags()); err != nil {
+		log.Fatal().Err(err).Msg("failed to bind sse flags")
+	}
 
 	// Add subcommands
 	rootCmd.AddCommand(stdioCmd)
 	rootCmd.AddCommand(sseCmd)
+
+	// Update command help with environment variable information
+	addEnvHelpToCommand(rootCmd)
+	addEnvHelpToCommand(stdioCmd)
+	addEnvHelpToCommand(sseCmd)
 }
 
+// initConfig sets up viper for config handling
 func initConfig() {
 	// Enable environment variable binding
-	viper.SetEnvPrefix("K8S_MCP")
+	viper.SetEnvPrefix(EnvPrefix)
 	viper.AutomaticEnv()
+
+	// Configure viper to use underscores in env vars
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 }
 
+// loadEnvOverrides manually checks for environment variables and overrides config values
+func loadEnvOverrides(cfg *Config) {
+	// Check for kubernetes connection env vars
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvKubeConfig); exists {
+		cfg.KubeConfig = val
+	}
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvNamespace); exists {
+		cfg.Namespace = val
+	}
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvInCluster); exists {
+		cfg.InCluster = strings.ToLower(val) == "true" || val == "1"
+	}
+
+	// Check for feature flags
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvReadOnly); exists {
+		cfg.ReadOnly = strings.ToLower(val) == "true" || val == "1"
+	}
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvResourceTypes); exists && val != "" {
+		cfg.EnabledResources = strings.Split(val, ",")
+	}
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvToolsets); exists && val != "" {
+		cfg.EnabledToolsets = strings.Split(val, ",")
+	}
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvExportTranslations); exists {
+		cfg.ExportTranslations = strings.ToLower(val) == "true" || val == "1"
+	}
+
+	// Check for transport-specific env vars
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvLogFile); exists {
+		cfg.LogFile = val
+	}
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvLogCommands); exists {
+		cfg.LogCommands = strings.ToLower(val) == "true" || val == "1"
+	}
+	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvPort); exists {
+		cfg.Port = val
+	}
+}
+
+// addEnvHelpToCommand adds environment variable documentation to command help text
+func addEnvHelpToCommand(cmd *cobra.Command) {
+	originalHelp := cmd.Long
+
+	// Define environment variables and their descriptions in slices
+	var envVarNames []string
+	var envVarDescs []string
+
+	// Common env vars for all commands
+	envVarNames = append(envVarNames,
+		EnvKubeConfig,
+		EnvNamespace,
+		EnvInCluster,
+		EnvReadOnly,
+		EnvResourceTypes,
+		EnvToolsets,
+		EnvExportTranslations,
+	)
+
+	envVarDescs = append(envVarDescs,
+		"Path to kubeconfig file",
+		"Default Kubernetes namespace",
+		"Use in-cluster config (true/false)",
+		"Restrict to read-only operations (true/false)",
+		"Comma-separated list of resource types",
+		"Comma-separated list of toolsets to enable",
+		"Export translations (true/false)",
+	)
+
+	// stdio specific env vars
+	if cmd == stdioCmd {
+		envVarNames = append(envVarNames,
+			EnvLogFile,
+			EnvLogCommands,
+		)
+
+		envVarDescs = append(envVarDescs,
+			"Path to log file",
+			"Log all commands (true/false)",
+		)
+	}
+
+	// SSE specific env vars
+	if cmd == sseCmd {
+		envVarNames = append(envVarNames, EnvPort)
+		envVarDescs = append(envVarDescs, "Port for SSE server")
+	}
+
+	// Calculate the maximum width needed for alignment
+	maxWidth := 0
+	for _, name := range envVarNames {
+		fullName := fmt.Sprintf("%s_%s", EnvPrefix, name)
+		if len(fullName) > maxWidth {
+			maxWidth = len(fullName)
+		}
+	}
+
+	// Create the help text with proper alignment
+	envHelp := "\n\nEnvironment Variables:\n"
+
+	// Add each relevant environment variable with proper alignment
+	for i, name := range envVarNames {
+		fullName := fmt.Sprintf("%s_%s", EnvPrefix, name)
+		// Format with consistent padding for alignment
+		envHelp += fmt.Sprintf("  %-*s   %s\n", maxWidth, fullName, envVarDescs[i])
+	}
+
+	cmd.Long = originalHelp + envHelp
+}
+
+// initStdioLogger creates and configures a logger for the stdio server
 func initStdioLogger(outPath string) (*logrus.Logger, error) {
 	logger := logrus.New()
 	logger.SetLevel(logrus.InfoLevel)
@@ -204,28 +373,42 @@ func initStdioLogger(outPath string) (*logrus.Logger, error) {
 	return logger, nil
 }
 
-func getEnv(key, defaultVal string) string {
-	if val, ok := os.LookupEnv(key); ok {
-		return val
-	}
-	return defaultVal
-}
-
+// createK8sClient creates a Kubernetes clientset based on configuration
 func createK8sClient(kubeconfig string, inCluster bool) (*kubernetes.Clientset, error) {
 	var config *rest.Config
 	var err error
+	var configSource string
 
+	// First priority: explicitly set inCluster flag
 	if inCluster {
-		// Use in-cluster config
 		config, err = rest.InClusterConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create in-cluster config: %w", err)
 		}
+		configSource = "in-cluster (explicitly configured)"
 	} else {
-		// Use kubeconfig file
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build config from kubeconfig: %w", err)
+		// Second priority: valid kubeconfig file
+		kubeconfigValid := false
+		if kubeconfig != "" {
+			if stat, statErr := os.Stat(kubeconfig); statErr == nil && stat.Size() > 0 {
+				if cfg, cfgErr := clientcmd.BuildConfigFromFlags("", kubeconfig); cfgErr == nil {
+					config = cfg
+					kubeconfigValid = true
+					configSource = fmt.Sprintf("kubeconfig file: %s", kubeconfig)
+				}
+			}
+		}
+
+		// Third priority: fallback to in-cluster if kubeconfig not valid
+		if !kubeconfigValid {
+			config, err = rest.InClusterConfig()
+			if err != nil {
+				// If all methods fail, provide a comprehensive error message
+				return nil, fmt.Errorf("could not find valid authentication method: "+
+					"kubeconfig file %q is invalid or missing and in-cluster config failed: %w",
+					kubeconfig, err)
+			}
+			configSource = "in-cluster (fallback)"
 		}
 	}
 
@@ -235,9 +418,13 @@ func createK8sClient(kubeconfig string, inCluster bool) (*kubernetes.Clientset, 
 		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
+	// Log the config source for easier debugging
+	log.Info().Str("source", configSource).Msg("Kubernetes client initialized")
+
 	return clientset, nil
 }
 
+// setupK8sServer creates and configures the MCP server with K8s tools
 func setupK8sServer(cfg Config) (*server.MCPServer, error) {
 	// Create Kubernetes client
 	k8sClient, err := createK8sClient(cfg.KubeConfig, cfg.InCluster)
@@ -256,7 +443,7 @@ func setupK8sServer(cfg Config) (*server.MCPServer, error) {
 	// Create MCP server
 	k8sServer := k8s.NewServer(version)
 
-	// Create default toolsets
+	// Create toolsets
 	k8sTools, err := k8s.InitToolsets(cfg.EnabledToolsets, cfg.ReadOnly, getClient, t, cfg.EnabledResources)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize toolsets: %w", err)
@@ -273,7 +460,8 @@ func setupK8sServer(cfg Config) (*server.MCPServer, error) {
 	return k8sServer, nil
 }
 
-func runStdioServer(cfg StdioConfig) error {
+// runStdioServer starts an MCP server using stdio transport
+func runStdioServer(cfg Config) error {
 	// Create app context with signal handling
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -284,45 +472,18 @@ func runStdioServer(cfg StdioConfig) error {
 		return fmt.Errorf("failed to initialize logger: %w", err)
 	}
 
-	// Create Kubernetes client
-	k8sClient, err := createK8sClient(cfg.KubeConfig, cfg.InCluster)
-	if err != nil {
-		return fmt.Errorf("failed to create Kubernetes client: %w", err)
-	}
-
-	// Initialize translation helper
-	t, dumpTranslations := translations.TranslationHelper()
-
-	// Create client getter function
-	getClient := func(_ context.Context) (kubernetes.Interface, error) {
-		return k8sClient, nil
-	}
-
 	// Create MCP server
-	k8sServer := k8s.NewServer(version)
-
-	enabled := cfg.EnabledToolsets
-
-	// Create default toolsets
-	k8s, err := k8s.InitToolsets(enabled, cfg.ReadOnly, getClient, t, cfg.EnabledResources)
+	k8sServer, err := setupK8sServer(cfg)
 	if err != nil {
-		stdlog.Fatal("Failed to initialize toolsets:", err)
+		return err
 	}
 
-	// Register tools with the server
-	k8s.RegisterTools(k8sServer)
-
-	// Create STDIO server
+	// Create stdio server
 	stdioServer := server.NewStdioServer(k8sServer)
 
 	// Configure logger
 	stdLogger := stdlog.New(logger.Writer(), "k8s-mcp-stdio: ", 0)
 	stdioServer.SetErrorLogger(stdLogger)
-
-	if cfg.ExportTranslations {
-		// Once server is initialized, all translations are loaded
-		dumpTranslations()
-	}
 
 	// Start listening for messages
 	errC := make(chan error, 1)
@@ -354,13 +515,14 @@ func runStdioServer(cfg StdioConfig) error {
 	return nil
 }
 
-func runSSEServer(cfg SSEConfig) error {
+// runSSEServer starts an MCP server using SSE transport
+func runSSEServer(cfg Config) error {
 	// Create app context with signal handling
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	// Create MCP server
-	k8sServer, err := setupK8sServer(cfg.Config)
+	k8sServer, err := setupK8sServer(cfg)
 	if err != nil {
 		return err
 	}
@@ -370,7 +532,7 @@ func runSSEServer(cfg SSEConfig) error {
 		server.WithBasePath("/mcp"),
 		server.WithKeepAlive(true),
 		server.WithSSEContextFunc(func(ctx context.Context, r *http.Request) context.Context {
-			// can add request-specific context values
+			// Can add request-specific context values
 			return ctx
 		}),
 	)
@@ -378,12 +540,13 @@ func runSSEServer(cfg SSEConfig) error {
 	// Create error channel
 	errC := make(chan error, 1)
 
-	address := fmt.Sprintf(":%s", cfg.Address)
+	// Format port
+	formattedPort := ":" + cfg.Port
 
 	// Start the server in a goroutine
 	go func() {
-		log.Info().Str("address", address).Msg("Starting SSE server")
-		errC <- sseServer.Start(address)
+		log.Info().Str("port", cfg.Port).Msg("Starting SSE server")
+		errC <- sseServer.Start(formattedPort)
 	}()
 
 	// Wait for shutdown signal
