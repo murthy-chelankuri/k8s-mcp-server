@@ -250,9 +250,6 @@ The Kubernetes MCP Server provides a comprehensive set of tools for interacting 
 - **list_nodes** - List all nodes in the cluster
   - No parameters required
 
-> [!IMPORTANT]
-> By default, tools that involve modification of resources in the cluster are disabled. To enable them, you have to set the `--read-only=false` flag or the `K8S_MCP_READ_ONLY=false` environment variable.
-
 ### Management Operations ⚙️
 
 - **delete_pod** - Delete a pod from a namespace
@@ -264,6 +261,9 @@ The Kubernetes MCP Server provides a comprehensive set of tools for interacting 
   - `namespace`: Deployment namespace (string, optional, defaults to current namespace)
   - `name`: Deployment name (string, required)
   - `replicas`: Number of replicas (number, required)
+
+> [!IMPORTANT]
+> By default, tools that involve modification of resources in the cluster are disabled. To enable them, you have to set the `--read-only=false` flag or the `K8S_MCP_READ_ONLY=false` environment variable.
 
 ## Future Enhancements 🔮
 
