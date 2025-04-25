@@ -22,8 +22,8 @@ The Kubernetes MCP Server is a [Model Context Protocol (MCP)](https://modelconte
     - [Build from source](#build-from-source)
   - [Command Line Options ⌨️](#command-line-options-️)
   - [Server Transport Options 🔄](#server-transport-options-)
-    - [stdio (Stable)](#stdio-stable)
-    - [SSE (Not Available Yet)](#sse-not-available-yet)
+    - [stdio](#stdio)
+    - [SSE](#sse)
   - [Access Control 🔒](#access-control-)
   - [Tools 🧰](#tools-)
     - [Resource Operations 📦](#resource-operations-)
@@ -61,10 +61,7 @@ Add the following to your Claude Desktop configuration file (`~/Library/Applicat
       "args": [
         "stdio",
         "--kubeconfig=/path/to/your/kubeconfig"
-      ],
-      "env": {
-        "KUBECONFIG": "/path/to/your/kubeconfig"
-      }
+      ]
     }
   }
 }
@@ -91,10 +88,7 @@ Add the following to your VS Code User Settings (JSON) file or `.vscode/mcp.json
         "args": [
           "stdio",
           "--kubeconfig=/path/to/your/kubeconfig"
-        ],
-        "env": {
-          "KUBECONFIG": "${input:kubeconfig_path}"
-        }
+        ]
       }
     }
   }
@@ -114,16 +108,19 @@ Add the following to your Cline configuration file (`path/to/cline_mcp_settings.
       "command": "path/to/k8smcp",
       "args": [
         "stdio",
+        "--read-only=false"
         "--kubeconfig=/path/to/your/kubeconfig"
       ],
       "env": {
-        "KUBECONFIG": "/path/to/your/kubeconfig"
+        "K8S_MCP_TOOLSETS": "all"
       },
       "transportType": "stdio"
     }
   }
 }
 ```
+
+Make sure to update the `command` value with the path to your k8smcp executable. You can set the server configurations either using `args` or `env`.
 
 ### Build from source
 
@@ -135,51 +132,63 @@ cd k8s-mcp-server
 make build
 ```
 
-Or install directly with Go:
-
-```bash
-go install github.com/briankscheong/k8s-mcp-server/cmd/k8s-mcp-server@latest
-```
-
 ## Command Line Options ⌨️
 
 ```txt
+A Kubernetes MCP Server that provides tools for interacting with Kubernetes clusters.
+
+Environment Variables:
+  K8S_MCP_KUBECONFIG            Path to kubeconfig file
+  K8S_MCP_NAMESPACE             Default Kubernetes namespace
+  K8S_MCP_IN_CLUSTER            Use in-cluster config (true/false)
+  K8S_MCP_READ_ONLY             Restrict to read-only operations (true/false)
+  K8S_MCP_RESOURCE_TYPES        Comma-separated list of resource types
+  K8S_MCP_TOOLSETS              Comma-separated list of toolsets to enable
+  K8S_MCP_EXPORT_TRANSLATIONS   Export translations (true/false)
+
 Usage:
   k8smcp [command]
 
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
-  http        Start HTTP server
+  sse         Start HTTP SSE server
   stdio       Start stdio server
 
 Flags:
       --export-translations      Save translations to a JSON file
   -h, --help                     help for k8smcp
       --in-cluster               Use in-cluster config instead of kubeconfig file
-      --kubeconfig string        Path to the kubeconfig file (default "$(HOME)/.kube/config")
-      --log-commands             Log all commands and responses
-      --log-file string          Path to log file (defaults to stderr)
-      --namespace string         Default Kubernetes namespace (default "default")
+      --kubeconfig string        Path to the kubeconfig file (default "/Users/briancheong/.kube/config")
+      --namespace string         Default Kubernetes namespace to target (default "default")
       --read-only                Restrict operations to read-only (no create, update, delete) (default true)
-      --resource-types strings   Comma separated list of Kubernetes resource types to enable (pods,deployments,services,configmaps,namespaces,nodes)
+      --resource-types strings   Comma separated list of Kubernetes resource types to enable (pods,deployments,services,configmaps,namespaces,nodes) (default [all])
       --toolsets strings         Comma separated list of tools to enable (default [all])
   -v, --version                  version for k8smcp
+
+Use "k8smcp [command] --help" for more information about a command.
 ```
 
 ## Server Transport Options 🔄
 
-### stdio (Stable)
+### stdio
 
-The `stdio` transport is the default and most stable option, recommended for most users:
+The `stdio` transport is the default and recommended option for most users for local integration:
 
 ```bash
 k8smcp stdio --kubeconfig=/path/to/your/kubeconfig
 ```
 
-### SSE (Not Available Yet)
+### SSE
 
-The `sse` transport option is under active development and will provide support for HTTP-based JSON-RPC message (de)serialization.
+The `sse` transport provides support for HTTP-based JSON-RPC message transport. This can be helpful when deploying the server in a Kubernetes cluster that needs to expose a port for client connection.
+
+```bash
+k8smcp sse --in-cluster=true
+```
+
+> [!NOTE]
+> The `--in-cluster=true` flag needs to be set if the server is deployed in a Kubernetes cluster.
 
 ## Access Control 🔒
 
@@ -219,11 +228,6 @@ The Kubernetes MCP Server provides a comprehensive set of tools for interacting 
   - `namespace`: Namespace to list deployments from (string, optional, defaults to current namespace)
   - `label_selector`: Filter deployments by label selector (string, optional)
 
-- **scale_deployment** - Scale a deployment to a specific number of replicas
-  - `namespace`: Deployment namespace (string, optional, defaults to current namespace)
-  - `name`: Deployment name (string, required)
-  - `replicas`: Number of replicas (number, required)
-
 - **get_service** - Get information about a specific service
   - `namespace`: Service namespace (string, optional, defaults to current namespace)
   - `name`: Service name (string, required)
@@ -246,6 +250,9 @@ The Kubernetes MCP Server provides a comprehensive set of tools for interacting 
 - **list_nodes** - List all nodes in the cluster
   - No parameters required
 
+> [!IMPORTANT]
+> By default, tools that involve modification of resources in the cluster are disabled. To enable them, you have to set the `--read-only=false` flag or the `K8S_MCP_READ_ONLY=false` environment variable.
+
 ### Management Operations ⚙️
 
 - **delete_pod** - Delete a pod from a namespace
@@ -253,13 +260,17 @@ The Kubernetes MCP Server provides a comprehensive set of tools for interacting 
   - `name`: Pod name (string, required)
   - `grace_period_seconds`: Grace period before deletion (number, optional)
 
+- **scale_deployment** - Scale a deployment to a specific number of replicas
+  - `namespace`: Deployment namespace (string, optional, defaults to current namespace)
+  - `name`: Deployment name (string, required)
+  - `replicas`: Number of replicas (number, required)
+
 ## Future Enhancements 🔮
 
-- Support for HTTP SSE Transport layer
-- Dynamic tool creation via OpenAPI schema
 - Enhanced RBAC integration for fine-grained access control
+- Support for more kubernetes resources
 - Support for custom resource definitions (CRDs)
-- Helm chart management capabilities
+- Helm chart management capabilities for deployment
 - Cluster monitoring and alerting integration
 - Support for multiple concurrent cluster connections
 

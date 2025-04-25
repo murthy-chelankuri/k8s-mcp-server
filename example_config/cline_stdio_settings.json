@@ -11,6 +11,7 @@
       "env": {
         "K8S_MCP_TOOLSETS": "all"
       },
+      "transportType": "stdio",
       "autoApprove": [
         "list_configmaps",
         "list_deployments",
