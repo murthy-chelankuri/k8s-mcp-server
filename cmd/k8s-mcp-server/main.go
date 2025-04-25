@@ -106,19 +106,6 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// K8sConfig returns a reduced config with just the Kubernetes settings
-func (c *Config) K8sConfig() Config {
-	return Config{
-		KubeConfig:         c.KubeConfig,
-		Namespace:          c.Namespace,
-		InCluster:          c.InCluster,
-		ReadOnly:           c.ReadOnly,
-		EnabledResources:   c.EnabledResources,
-		EnabledToolsets:    c.EnabledToolsets,
-		ExportTranslations: c.ExportTranslations,
-	}
-}
-
 var rootCmd = &cobra.Command{
 	Use:     "k8smcp",
 	Short:   "Kubernetes MCP Server",
