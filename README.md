@@ -7,8 +7,6 @@
 
 The Kubernetes MCP Server is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) server that provides seamless integration with Kubernetes APIs, enabling advanced automation and interaction capabilities for developers, operators, and AI tools.
 
-> **Note**: This project was inspired by and references the architecture of [GitHub's MCP Server](https://github.com/github/github-mcp-server). We acknowledge their excellent work which helped inform our implementation approach.
-
 ## Table of Contents
 
 - [Kubernetes MCP Server 🚀](#kubernetes-mcp-server-)
@@ -130,6 +128,12 @@ Clone the repository and build the binary:
 git clone https://github.com/briankscheong/k8s-mcp-server.git
 cd k8s-mcp-server
 make build
+```
+
+Or install directly with Go:
+
+```bash
+go install github.com/briankscheong/k8s-mcp-server/cmd/k8s-mcp-server@latest
 ```
 
 ## Command Line Options ⌨️
