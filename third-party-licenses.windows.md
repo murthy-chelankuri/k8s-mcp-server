@@ -1,6 +1,6 @@
-# GitHub MCP Server dependencies
+# Kubernetes MCP Server dependencies
 
-The following open source dependencies are used to build the [github/github-mcp-server][] GitHub Model Context Protocol Server.
+The following open source dependencies are used to build the [briankscheong/k8s-mcp-server][] Kubernetes Model Context Protocol Server.
 
 ## Go Packages
 
@@ -72,4 +72,4 @@ Some packages may only be included on certain architectures or operating systems
  - [sigs.k8s.io/yaml](https://pkg.go.dev/sigs.k8s.io/yaml) ([Apache-2.0](https://github.com/kubernetes-sigs/yaml/blob/v1.4.0/LICENSE))
  - [sigs.k8s.io/yaml/goyaml.v2](https://pkg.go.dev/sigs.k8s.io/yaml/goyaml.v2) ([Apache-2.0](https://github.com/kubernetes-sigs/yaml/blob/v1.4.0/goyaml.v2/LICENSE))
 
-[github/github-mcp-server]: https://github.com/github/github-mcp-server
+[briankscheong/k8s-mcp-server]: https://github.com/briankscheong/k8s-mcp-server
