@@ -8,9 +8,7 @@ import (
 
 var DefaultTools = []string{"all"}
 
-func InitToolsets(passedToolsets []string, readOnly bool, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc, enabledResourceTypes []string) (*toolsets.ToolsetGroup, error) {
-	// Create a new toolset group
-	tsg := toolsets.NewToolsetGroup(readOnly)
+func InitToolsets(passedToolsets []string, readOnly bool, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc, enabledResourceTypes []string) (*toolsets.Toolset, error) {
 
 	// Create a resource registry
 	registry := toolsets.NewResourceRegistry()
@@ -25,17 +23,9 @@ func InitToolsets(passedToolsets []string, readOnly bool, getClient toolsets.Get
 	}
 
 	// Create a toolset from the registry
-	resourcesToolset := resources.CreateToolset(registry, "k8s_resources")
+	k8sToolset := resources.CreateToolset(registry, "k8s_resources")
 
-	// Add the toolset to the toolset group
-	tsg.AddToolset(resourcesToolset)
-
-	// Enable the requested features
-	if err := tsg.EnableToolsets(passedToolsets); err != nil {
-		return nil, err
-	}
-
-	return tsg, nil
+	return k8sToolset, nil
 }
 
 // Helper function to check if a slice contains a string

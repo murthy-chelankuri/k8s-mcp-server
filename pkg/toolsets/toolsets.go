@@ -2,7 +2,6 @@ package toolsets
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -86,88 +85,6 @@ func (t *Toolset) AddReadTool(tool mcp.Tool, handler server.ToolHandlerFunc) {
 func (t *Toolset) AddWriteTool(tool mcp.Tool, handler server.ToolHandlerFunc) {
 	if !t.readOnly {
 		t.writeTools = append(t.writeTools, NewServerTool(tool, handler))
-	}
-}
-
-// ToolsetGroup represents a group of toolsets
-type ToolsetGroup struct {
-	Toolsets     map[string]*Toolset
-	everythingOn bool
-	readOnly     bool
-}
-
-// NewToolsetGroup creates a new toolset group
-func NewToolsetGroup(readOnly bool) *ToolsetGroup {
-	return &ToolsetGroup{
-		Toolsets:     make(map[string]*Toolset),
-		everythingOn: false,
-		readOnly:     readOnly,
-	}
-}
-
-// AddToolset adds a toolset to the group
-func (tg *ToolsetGroup) AddToolset(ts *Toolset) {
-	if tg.readOnly {
-		ts.SetReadOnly()
-	}
-	tg.Toolsets[ts.Name] = ts
-}
-
-// IsEnabled checks if a toolset is enabled
-func (tg *ToolsetGroup) IsEnabled(name string) bool {
-	// If everythingOn is true, all features are enabled
-	if tg.everythingOn {
-		return true
-	}
-
-	feature, exists := tg.Toolsets[name]
-	if !exists {
-		return false
-	}
-	return feature.Enabled
-}
-
-// EnableToolsets enables multiple toolsets by name
-func (tg *ToolsetGroup) EnableToolsets(names []string) error {
-	// Special case for "all"
-	for _, name := range names {
-		if name == "all" {
-			tg.everythingOn = true
-			break
-		}
-		err := tg.EnableToolset(name)
-		if err != nil {
-			return err
-		}
-	}
-	// Do this after to ensure all toolsets are enabled if "all" is present anywhere in list
-	if tg.everythingOn {
-		for name := range tg.Toolsets {
-			err := tg.EnableToolset(name)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	return nil
-}
-
-// EnableToolset enables a single toolset by name
-func (tg *ToolsetGroup) EnableToolset(name string) error {
-	toolset, exists := tg.Toolsets[name]
-	if !exists {
-		return fmt.Errorf("toolset %s does not exist", name)
-	}
-	toolset.Enabled = true
-	tg.Toolsets[name] = toolset
-	return nil
-}
-
-// RegisterTools registers all enabled toolsets with the server
-func (tg *ToolsetGroup) RegisterTools(s *server.MCPServer) {
-	for _, toolset := range tg.Toolsets {
-		toolset.RegisterTools(s)
 	}
 }
 
