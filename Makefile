@@ -42,6 +42,9 @@ brew_docker_buildx_setup:
 	ln -sfn $$(brew --prefix docker-buildx) $(HOME)/.docker/cli-plugins/docker-buildx
 	docker buildx install
 
+brew_kind_setup:
+	brew install kind
+
 #
 #
 # - k3d targets
@@ -79,6 +82,59 @@ add_kubeconfig:
 
 #
 #
+# - kind targets
+###############################
+KIND_CLUSTER_NAME ?= mcp-k8s-test
+KIND_CONFIG ?= kind-config.yaml
+
+# Create kind config file if it doesn't exist
+$(KIND_CONFIG):
+	@echo "Creating kind configuration file..."
+	@echo "kind: Cluster" > $(KIND_CONFIG)
+	@echo "apiVersion: kind.x-k8s.io/v1alpha4" >> $(KIND_CONFIG)
+	@echo "nodes:" >> $(KIND_CONFIG)
+	@echo "- role: control-plane" >> $(KIND_CONFIG)
+	@echo "- role: worker" >> $(KIND_CONFIG)
+
+# Create a kind cluster
+kind_cluster_create: $(KIND_CONFIG)
+	@echo "Creating kind cluster $(KIND_CLUSTER_NAME)..."
+	kind create cluster --name $(KIND_CLUSTER_NAME) --config $(KIND_CONFIG)
+	@echo "Cluster created successfully!"
+	@echo "Configuring kubectl context..."
+	kind export kubeconfig --name $(KIND_CLUSTER_NAME)
+	@echo "Ready to use the cluster!"
+
+# Delete the kind cluster
+kind_cluster_delete:
+	@echo "Deleting kind cluster $(KIND_CLUSTER_NAME)..."
+	kind delete cluster --name $(KIND_CLUSTER_NAME)
+	@echo "Cluster deleted successfully!"
+
+# Get cluster status
+kind_cluster_status:
+	@if kind get clusters | grep -q $(KIND_CLUSTER_NAME); then \
+		echo "Cluster $(KIND_CLUSTER_NAME) is running"; \
+		kubectl --context kind-$(KIND_CLUSTER_NAME) get nodes; \
+	else \
+		echo "Cluster $(KIND_CLUSTER_NAME) is not running"; \
+	fi
+
+# Deploy test resources to the kind cluster
+deploy_test_resources:
+	@echo "Deploying test resources to kind cluster..."
+	kubectl --context kind-$(KIND_CLUSTER_NAME) apply -f test/resources/
+
+# Run MCP server against the kind cluster
+run_with_kind: build
+	@echo "Starting MCP server connected to kind cluster..."
+	KUBECONFIG=$(KUBECONFIG_PATH) ./k8smcp stdio
+
+# Complete test cycle with kind cluster
+kind_test_cycle: kind_cluster_create deploy_test_resources test kind_cluster_delete
+
+#
+#
 # - docker targets
 ###############################
 IMAGE_TAG?=$(shell date +%Y%m%d%H%M%S)
@@ -103,3 +159,57 @@ build_push_image:
 	docker push $$image_repo; \
 	echo "Updating image tag in k8s/deployment.yaml to $$image_tag..."; \
 	sed -i.bak -E "s|(image: .+):[^:]+$$|\1:$$image_tag|" k8s/deployment.yaml
+
+# Load Docker image into kind cluster
+kind_load_image: build_container
+	@dir_name="$$(basename "$$PWD")"; \
+	kind load docker-image $$dir_name:$(IMAGE_TAG) --name $(KIND_CLUSTER_NAME)
+
+#
+#
+# - help
+###############################
+.PHONY: help
+help:
+	@echo "Kubernetes MCP Server Development Makefile"
+	@echo ""
+	@echo "Go Targets:"
+	@echo "  build                    - Build the K8s MCP server"
+	@echo "  run                      - Run the K8s MCP server (stdio)"
+	@echo "  clean                    - Clean up build artifacts"
+	@echo "  test                     - Run tests and generate coverage"
+	@echo ""
+	@echo "Brew Targets:"
+	@echo "  brew_k3d_setup           - Install k3d, kubectl, and k9s via Homebrew"
+	@echo "  brew_k3d_cleanup         - Uninstall k3d, kubectl, and k9s"
+	@echo "  brew_docker_buildx_setup - Install Docker BuildKit"
+	@echo "  brew_kind_setup          - Install kind via Homebrew"
+	@echo ""
+	@echo "K3D Targets:"
+	@echo "  k3d_setup                - Install k3d CLI"
+	@echo "  kubectl_setup            - Install kubectl"
+	@echo "  create_k3d_cluster       - Create a k3d cluster"
+	@echo "  delete_k3d_cluster       - Delete the k3d cluster"
+	@echo "  add_kubeconfig           - Update kubeconfig for k3d cluster"
+	@echo ""
+	@echo "Kind Targets:"
+	@echo "  kind_cluster_create      - Create a kind cluster for testing"
+	@echo "  kind_cluster_delete      - Delete the kind cluster"
+	@echo "  kind_cluster_status      - Check kind cluster status"
+	@echo "  deploy_test_resources    - Deploy test resources to kind cluster"
+	@echo "  run_with_kind            - Run MCP server against kind cluster"
+	@echo "  kind_test_cycle          - Full test cycle with kind (create, test, delete)"
+	@echo "  kind_load_image          - Load Docker image into kind cluster"
+	@echo ""
+	@echo "Docker Targets:"
+	@echo "  build_container          - Build Docker container"
+	@echo "  run_container            - Build and run Docker container"
+	@echo "  build_push_image         - Build and push image to k3d registry"
+	@echo ""
+	@echo "Configuration Variables:"
+	@echo "  KIND_CLUSTER_NAME        - Name of the kind cluster (default: mcp-k8s-test)"
+	@echo "  KIND_CONFIG              - Path to kind config file (default: kind-config.yaml)"
+	@echo "  CLUSTER_NAME             - Name of the k3d cluster (default: cluster-one)"
+	@echo "  REGISTRY_PORT            - Port for the k3d registry (default: 5432)"
+	@echo "  KUBECONFIG_PATH          - Path to kubeconfig file (default: ~/.kube/config)"
+	@echo "  IMAGE_TAG                - Tag for Docker images (default: timestamp)"
