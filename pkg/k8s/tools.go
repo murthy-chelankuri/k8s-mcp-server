@@ -8,18 +8,18 @@ import (
 
 var DefaultTools = []string{"all"}
 
-func InitToolsets(passedToolsets []string, readOnly bool, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc, enabledResourceTypes []string) (*toolsets.Toolset, error) {
+func InitToolset(readOnly bool, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc, enabledResourceTypes []string) (*toolsets.Toolset, error) {
 
 	// Create a resource registry
-	registry := toolsets.NewResourceRegistry()
+	registry := toolsets.NewK8sResourceRegistry()
 
 	// Register resources based on enabledResourceTypes
 	if len(enabledResourceTypes) == 0 || contains(enabledResourceTypes, "all") {
-		// Register all resources with the registry
-		resources.RegisterAllResources(registry, getClient, t)
+		// Register all k8s resources with the registry
+		resources.RegisterAllK8sResources(registry, getClient, t)
 	} else {
-		// Register only the specified resources
-		resources.RegisterSelectedResources(registry, getClient, t, enabledResourceTypes)
+		// Register only the specified k8s resources
+		resources.RegisterSelectedK8sResources(registry, getClient, t, enabledResourceTypes)
 	}
 
 	// Create a toolset from the registry
