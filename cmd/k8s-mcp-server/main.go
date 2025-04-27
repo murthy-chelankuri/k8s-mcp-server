@@ -67,10 +67,9 @@ type Config struct {
 	InCluster  bool   `mapstructure:"in-cluster"`
 
 	// Feature flags
-	ReadOnly           bool     `mapstructure:"read-only"`
-	EnabledResources   []string `mapstructure:"resource-types"`
-	EnabledToolsets    []string `mapstructure:"toolsets"`
-	ExportTranslations bool     `mapstructure:"export-translations"`
+	ReadOnly            bool     `mapstructure:"read-only"`
+	EnabledK8sResources []string `mapstructure:"resource-types"`
+	ExportTranslations  bool     `mapstructure:"export-translations"`
 
 	// Transport-specific config
 	LogFile     string `mapstructure:"log-file"`
@@ -86,13 +85,8 @@ func (c *Config) Validate() error {
 	}
 
 	// Validate that at least one resource type is enabled
-	if len(c.EnabledResources) == 0 {
+	if len(c.EnabledK8sResources) == 0 {
 		return fmt.Errorf("at least one resource type must be enabled")
-	}
-
-	// Validate that at least one toolset is enabled
-	if len(c.EnabledToolsets) == 0 {
-		return fmt.Errorf("at least one toolset must be enabled")
 	}
 
 	// For SSE, validate the port
@@ -247,10 +241,7 @@ func loadEnvOverrides(cfg *Config) {
 		cfg.ReadOnly = strings.ToLower(val) == "true" || val == "1"
 	}
 	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvResourceTypes); exists && val != "" {
-		cfg.EnabledResources = strings.Split(val, ",")
-	}
-	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvToolsets); exists && val != "" {
-		cfg.EnabledToolsets = strings.Split(val, ",")
+		cfg.EnabledK8sResources = strings.Split(val, ",")
 	}
 	if val, exists := os.LookupEnv(EnvPrefix + "_" + EnvExportTranslations); exists {
 		cfg.ExportTranslations = strings.ToLower(val) == "true" || val == "1"
@@ -430,14 +421,14 @@ func setupK8sServer(cfg Config) (*server.MCPServer, error) {
 	// Create MCP server
 	k8sServer := k8s.NewServer(version)
 
-	// Create toolsets
-	k8sTools, err := k8s.InitToolsets(cfg.EnabledToolsets, cfg.ReadOnly, getClient, t, cfg.EnabledResources)
+	// Create toolset
+	k8sToolset, err := k8s.InitToolset(cfg.ReadOnly, getClient, t, cfg.EnabledK8sResources)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize toolsets: %w", err)
 	}
 
 	// Register tools with the server
-	k8sTools.RegisterTools(k8sServer)
+	k8sToolset.RegisterTools(k8sServer)
 
 	// Export translations if requested
 	if cfg.ExportTranslations {

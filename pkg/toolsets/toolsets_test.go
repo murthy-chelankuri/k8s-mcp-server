@@ -7,15 +7,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Tests for the ResourceRegistry
+// Tests for the K8sResourceRegistry
 
-func TestResourceRegistry(t *testing.T) {
-	registry := NewResourceRegistry()
+func TestK8sResourceRegistry(t *testing.T) {
+	registry := NewK8sResourceRegistry()
 	assert.NotNil(t, registry)
 	assert.Empty(t, registry.handlers)
 
 	// Create a mock resource handler
-	mockHandler := &mockResourceHandler{}
+	mockHandler := &mockK8sResourceHandler{}
 
 	// Register the handler
 	registry.Register("mock", mockHandler)
@@ -89,9 +89,9 @@ func TestOptionalParam(t *testing.T) {
 
 // Helper functions for testing
 
-type mockResourceHandler struct{}
+type mockK8sResourceHandler struct{}
 
-func (m *mockResourceHandler) RegisterTools(toolset *Toolset) {}
+func (m *mockK8sResourceHandler) RegisterTools(toolset *Toolset) {}
 
 func createTestRequest(args map[string]interface{}) mcp.CallToolRequest {
 	return mcp.CallToolRequest{

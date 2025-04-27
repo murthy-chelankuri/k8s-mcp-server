@@ -11,8 +11,8 @@ import (
 	"github.com/briankscheong/k8s-mcp-server/pkg/translations"
 )
 
-// RegisterAllResources registers all resource handlers with the registry
-func RegisterAllResources(registry *toolsets.ResourceRegistry, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc) {
+// RegisterAllK8sResources registers all k8s resource handlers with the registry
+func RegisterAllK8sResources(registry *toolsets.K8sResourceRegistry, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc) {
 	// Register Pod resource handler
 	registry.Register("pod", pod.NewHandler(getClient, t))
 
@@ -32,8 +32,8 @@ func RegisterAllResources(registry *toolsets.ResourceRegistry, getClient toolset
 	registry.Register("node", node.NewHandler(getClient, t))
 }
 
-// RegisterSelectedResources registers only the specified resource handlers with the registry
-func RegisterSelectedResources(registry *toolsets.ResourceRegistry, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc, resourceTypes []string) {
+// RegisterSelectedK8sResources registers only the specified resource handlers with the registry
+func RegisterSelectedK8sResources(registry *toolsets.K8sResourceRegistry, getClient toolsets.GetClientFn, t translations.TranslationHelperFunc, resourceTypes []string) {
 	// Map of resource types to their registration functions
 	resourceMap := map[string]func(){
 		"pod": func() {
@@ -65,9 +65,9 @@ func RegisterSelectedResources(registry *toolsets.ResourceRegistry, getClient to
 }
 
 // CreateToolset creates a toolset with all registered resource handlers
-func CreateToolset(registry *toolsets.ResourceRegistry, name string) *toolsets.Toolset {
+func CreateToolset(registry *toolsets.K8sResourceRegistry, name string, readOnly bool) *toolsets.Toolset {
 	// Create a new toolset
-	toolset := toolsets.NewToolset(name, "K8s resources related tools")
+	toolset := toolsets.NewToolset(name, "K8s resources related tools", readOnly)
 
 	// Register all resource handlers with the toolset
 	for _, handler := range registry.GetAllHandlers() {

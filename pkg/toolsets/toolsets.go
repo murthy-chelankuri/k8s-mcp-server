@@ -27,12 +27,12 @@ type Toolset struct {
 }
 
 // NewToolset creates a new toolset with the given name and description
-func NewToolset(name string, description string) *Toolset {
+func NewToolset(name string, description string, readOnly bool) *Toolset {
 	return &Toolset{
 		Name:        name,
 		Description: description,
-		Enabled:     false,
-		readOnly:    false,
+		Enabled:     true,
+		readOnly:    readOnly,
 	}
 }
 
@@ -88,36 +88,39 @@ func (t *Toolset) AddWriteTool(tool mcp.Tool, handler server.ToolHandlerFunc) {
 	}
 }
 
-// ResourceHandler defines the interface for all Kubernetes resource handlers
-type ResourceHandler interface {
-	// RegisterTools registers all tools for this resource with the provided toolset
+// K8sResourceHandler defines the interface for all Kubernetes resource handlers
+type K8sResourceHandler interface {
+	// RegisterTools registers all tools for a k8s resource with the provided toolset
 	RegisterTools(toolset *Toolset)
+
+	// RegisterResources registers all mcp resources for a k8s resource with the provided resource set
+	// RegisterResources(resourceSet *ResourceSet)
 }
 
-// ResourceRegistry is a registry for all resource handlers
-type ResourceRegistry struct {
-	handlers map[string]ResourceHandler
+// K8sResourceRegistry is a registry for all resource handlers
+type K8sResourceRegistry struct {
+	handlers map[string]K8sResourceHandler
 }
 
-// NewResourceRegistry creates a new resource registry
-func NewResourceRegistry() *ResourceRegistry {
-	return &ResourceRegistry{
-		handlers: make(map[string]ResourceHandler),
+// NewK8sResourceRegistry creates a new resource registry
+func NewK8sResourceRegistry() *K8sResourceRegistry {
+	return &K8sResourceRegistry{
+		handlers: make(map[string]K8sResourceHandler),
 	}
 }
 
 // Register registers a resource handler with the registry
-func (r *ResourceRegistry) Register(name string, handler ResourceHandler) {
+func (r *K8sResourceRegistry) Register(name string, handler K8sResourceHandler) {
 	r.handlers[name] = handler
 }
 
 // GetHandler returns a resource handler by name
-func (r *ResourceRegistry) GetHandler(name string) (ResourceHandler, bool) {
+func (r *K8sResourceRegistry) GetHandler(name string) (K8sResourceHandler, bool) {
 	handler, ok := r.handlers[name]
 	return handler, ok
 }
 
 // GetAllHandlers returns all registered resource handlers
-func (r *ResourceRegistry) GetAllHandlers() map[string]ResourceHandler {
+func (r *K8sResourceRegistry) GetAllHandlers() map[string]K8sResourceHandler {
 	return r.handlers
 }

@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Handler implements the ResourceHandler interface for ConfigMap resources
+// Handler implements the K8sResourceHandler interface for ConfigMap resources
 type Handler struct {
 	getClient toolsets.GetClientFn
 	t         translations.TranslationHelperFunc

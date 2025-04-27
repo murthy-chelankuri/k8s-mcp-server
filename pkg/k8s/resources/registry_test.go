@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func TestRegisterAllResources(t *testing.T) {
+func TestRegisterAllK8sResources(t *testing.T) {
 	// Create a fake client
 	fakeClient := fake.NewSimpleClientset()
 	getClient := func(ctx context.Context) (kubernetes.Interface, error) {
@@ -19,10 +19,10 @@ func TestRegisterAllResources(t *testing.T) {
 	}
 
 	// Create a registry
-	registry := toolsets.NewResourceRegistry()
+	registry := toolsets.NewK8sResourceRegistry()
 
 	// Register all resources
-	RegisterAllResources(registry, getClient, translations.NullTranslationHelper)
+	RegisterAllK8sResources(registry, getClient, translations.NullTranslationHelper)
 
 	// Verify that all resources are registered
 	handlers := registry.GetAllHandlers()
@@ -43,13 +43,16 @@ func TestCreateToolset(t *testing.T) {
 	}
 
 	// Create a registry
-	registry := toolsets.NewResourceRegistry()
+	registry := toolsets.NewK8sResourceRegistry()
+
+	// set toolset to read-only
+	readOnly := true
 
 	// Register all resources
-	RegisterAllResources(registry, getClient, translations.NullTranslationHelper)
+	RegisterAllK8sResources(registry, getClient, translations.NullTranslationHelper)
 
 	// Create a toolset
-	toolset := CreateToolset(registry, "test_toolset")
+	toolset := CreateToolset(registry, "test_toolset", readOnly)
 
 	// Verify that the toolset is created
 	assert.NotNil(t, toolset)
