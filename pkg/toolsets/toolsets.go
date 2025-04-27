@@ -27,12 +27,12 @@ type Toolset struct {
 }
 
 // NewToolset creates a new toolset with the given name and description
-func NewToolset(name string, description string) *Toolset {
+func NewToolset(name string, description string, readOnly bool) *Toolset {
 	return &Toolset{
 		Name:        name,
 		Description: description,
-		Enabled:     false,
-		readOnly:    false,
+		Enabled:     true,
+		readOnly:    readOnly,
 	}
 }
 

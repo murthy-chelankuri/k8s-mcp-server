@@ -45,11 +45,14 @@ func TestCreateToolset(t *testing.T) {
 	// Create a registry
 	registry := toolsets.NewK8sResourceRegistry()
 
+	// set toolset to read-only
+	readOnly := true
+
 	// Register all resources
 	RegisterAllK8sResources(registry, getClient, translations.NullTranslationHelper)
 
 	// Create a toolset
-	toolset := CreateToolset(registry, "test_toolset")
+	toolset := CreateToolset(registry, "test_toolset", readOnly)
 
 	// Verify that the toolset is created
 	assert.NotNil(t, toolset)

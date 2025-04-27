@@ -65,9 +65,9 @@ func RegisterSelectedK8sResources(registry *toolsets.K8sResourceRegistry, getCli
 }
 
 // CreateToolset creates a toolset with all registered resource handlers
-func CreateToolset(registry *toolsets.K8sResourceRegistry, name string) *toolsets.Toolset {
+func CreateToolset(registry *toolsets.K8sResourceRegistry, name string, readOnly bool) *toolsets.Toolset {
 	// Create a new toolset
-	toolset := toolsets.NewToolset(name, "K8s resources related tools")
+	toolset := toolsets.NewToolset(name, "K8s resources related tools", readOnly)
 
 	// Register all resource handlers with the toolset
 	for _, handler := range registry.GetAllHandlers() {

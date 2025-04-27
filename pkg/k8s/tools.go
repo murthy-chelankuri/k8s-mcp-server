@@ -23,7 +23,7 @@ func InitToolset(readOnly bool, getClient toolsets.GetClientFn, t translations.T
 	}
 
 	// Create a toolset from the registry
-	k8sToolset := resources.CreateToolset(registry, "k8s_resources")
+	k8sToolset := resources.CreateToolset(registry, "k8s_resources", readOnly)
 
 	return k8sToolset, nil
 }
