@@ -19,3 +19,4 @@ temp*
 *.out
 *.html
 kind*
+build-dev.sh
